@@ -1,0 +1,75 @@
+/* styles/Footer.css */
+.footer {
+    padding: 2rem;
+    border-top: 1px solid #e5e7eb;
+    background-color: #fff;
+  }
+  
+  .footer .grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  @media (min-width: 768px) {
+    .footer .grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  
+  .footer h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  
+  .footer p,
+  .footer a {
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
+  
+  .footer a:hover {
+    color: #000;
+  }
+  
+  .footer h3 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+  }
+  
+  .footer ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .footer .newsletter {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .footer .newsletter input {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    width: 100%;
+    font-size: 0.875rem;
+  }
+  
+  .footer .newsletter button {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    background-color: #fff;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+  
+  .footer .copyright {
+    text-align: center;
+    margin-top: 2rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+  }
