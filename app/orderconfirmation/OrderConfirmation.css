@@ -1,0 +1,132 @@
+.confirmation-page {
+  padding: 2rem 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.breadcrumb {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.breadcrumb a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.confirmation-title {
+  font-size: 2rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #10b981;
+}
+
+.confirmation-content {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.order-items {
+  flex: 2;
+  background-color: #fff;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.order-item {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  align-items: center;
+}
+
+.item-details {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.item-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 0.25rem;
+}
+
+.order-item span {
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.order-summary {
+  flex: 1;
+  background-color: #fff;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-summary h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.order-summary h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.summary-row.total {
+  font-weight: 600;
+  font-size: 1rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .confirmation-content {
+    flex-direction: column;
+  }
+
+  .order-header,
+  .order-item {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .order-header span:nth-child(3),
+  .order-header span:nth-child(4),
+  .order-item span:nth-child(3),
+  .order-item span:nth-child(4) {
+    display: none;
+  }
+}

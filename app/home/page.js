@@ -5,9 +5,11 @@ import { useEffect,useState } from "react";
 import { useCart } from "../../context/CartContext";
 import { useRouter } from "next/navigation";
 import Voucher from "../../components/voucher/voucher";
+import { useUser } from "../../context/UserContext"; // Import the useUser hook
 import "./Home.css";
 
 export default function Home() {
+  const { fetchPoints } = useUser(); // Get fetchPoints from UserContext
   const { addToCart } = useCart();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -90,13 +92,48 @@ const openRedeemModal = (voucher) => {
 };
 
 
-const handleAcceptTerms = () => {
+const handleAcceptTerms = async (selectedVoucher) => {
   if (agreeTerms) {
-    const remainingPoints = userPoints - selectedVoucher.price;
-    setUserPoints(remainingPoints);
-    setVoucherCode(`VCH-${Date.now().toString().slice(-6)}`);
-    setShowTermsModal(false);
-    setShowSuccessModal(true);
+    try {
+      const response = await fetch("http://localhost:8080/api/voucherCode/generate", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          voucherId: selectedVoucher.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error generating voucher code: ${response.status}`);
+      }
+
+      // Process the response as a Blob (PDF file)
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // Create a temporary link to download the PDF
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `voucher-${selectedVoucher.id}.pdf`; // Set the file name
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Refresh points in the context
+      await fetchPoints();
+
+      setShowTermsModal(false);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error("Failed to generate voucher code:", error);
+      if (error.message.includes("401")) {
+        setIsAuthenticated(false);
+        router.push("/login");
+      }
+    }
   } else {
     alert("Please agree to the redemption terms and policies.");
   }
@@ -200,7 +237,12 @@ const handleAcceptTerms = () => {
               I agree to the redemption terms and policies.
             </label>
             <div className="modal-buttons">
-              <button className="accept-btn" onClick={handleAcceptTerms}>Accept</button>
+              <button
+  className="accept-btn"
+  onClick={() => handleAcceptTerms(selectedVoucher)}
+>
+  Accept
+</button>
               <button className="close-btn" onClick={() => setShowTermsModal(false)}>Cancel</button>
             </div>
           </div>
