@@ -177,6 +177,21 @@ const handleAcceptTerms = async (selectedVoucher) => {
 
   return (
     <div className="home-container">
+       {/* Latest Voucher Section */}
+       <section className="voucher-section">
+        <h2 className="section-title">Latest Voucher</h2>
+        <div className="voucher-grid">
+        {vouchers.map((voucher, index) => (
+              <Voucher key={index} product={voucher} handleAddToCart={handleAddToCart} openRedeemModal ={openRedeemModal} />
+            ))}
+        </div>
+        {visibleVouchers < vouchers.length && (
+          <button className="show-more" onClick={handleShowMore}>
+            Show More
+          </button>
+        )}
+      </section>
+      
       {/* Browse The Category Section */}
       <section className="category-section">
         <h2 className="section-title">Browse The Category</h2>
@@ -205,20 +220,7 @@ const handleAcceptTerms = async (selectedVoucher) => {
         </div>
       </section>
 
-      {/* Latest Voucher Section */}
-      <section className="voucher-section">
-        <h2 className="section-title">Latest Voucher</h2>
-        <div className="voucher-grid">
-        {vouchers.map((voucher, index) => (
-              <Voucher key={index} product={voucher} handleAddToCart={handleAddToCart} openRedeemModal ={openRedeemModal} />
-            ))}
-        </div>
-        {visibleVouchers < vouchers.length && (
-          <button className="show-more" onClick={handleShowMore}>
-            Show More
-          </button>
-        )}
-      </section>
+     
 
         {/* Terms & Conditions Modal */}
         {showTermsModal && (

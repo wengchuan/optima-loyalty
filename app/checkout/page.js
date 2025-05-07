@@ -1,22 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter,useSearchParams } from "next/navigation";
 import { useCart } from "../../context/CartContext";
-import { useUser } from "../../context/UserContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Checkout.css";
 
 export default function Checkout() {
+  const searchParams = useSearchParams();
+  const voucherCode = searchParams.get("voucherCode");
+  const updatedPoints = searchParams.get("updatedPoints");
+
   const { cart, clearCart } = useCart();
-  const { pointsBalance, deductPoints, addresses, addAddress, updateAddress } = useUser();
   const router = useRouter();
 
-  // State for the modal and form
-  const [showModal, setShowModal] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editIndex, setEditIndex] = useState(null);
+  // State for user details and addresses
+  const [addresses, setAddresses] = useState([]);
+  const [pointsBalance, setPointsBalance] = useState(0);
   const [selectedAddressIndex, setSelectedAddressIndex] = useState(0); // Default to first address
+  const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -32,121 +34,112 @@ export default function Checkout() {
     agreeTerms: false,
   });
 
+  // Fetch user details from the API
+  const fetchUserDetails = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/users/user_info", {
+        method: "POST",
+        credentials: "include", // Include cookies for authentication
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch user details");
+      }
+
+      const user = await response.json();
+
+      // Populate addresses and points balance
+      setAddresses([
+        {
+          name: user.username,
+          address: user.address,
+          phone: user.phoneNumber,
+        },
+      ]);
+      setPointsBalance(user.points);
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    }
+  };
+
   // Calculate total points (excluding redeemed items)
   const totalPoints = cart.reduce((total, item) => {
     const itemPrice = item.isRedeemed ? 0 : item.price;
     return total + itemPrice * item.quantity;
   }, 0);
 
-  // Open modal for adding a new address
-  const openAddModal = () => {
-    setIsEditing(false);
-    setFormData({
-      firstName: "",
-      lastName: "",
-      companyName: "",
-      country: "Malaysia",
-      streetAddress: "",
-      townCity: "",
-      state: "Melaka",
-      zipCode: "",
-      phone: "",
-      email: "",
-      additionalInfo: "",
-      agreeTerms: false,
-    });
-    setShowModal(true);
-  };
-
-  // Open modal for editing an existing address
-  const openEditModal = (index) => {
-    const address = addresses[index];
-    const [firstName, lastName] = address.name.split(" ");
-    const addressParts = address.address.split(", ");
-    setFormData({
-      firstName: firstName || "",
-      lastName: lastName || "",
-      companyName: "",
-      country: addressParts[addressParts.length - 1] || "Malaysia",
-      streetAddress: addressParts[0] || "",
-      townCity: addressParts[1] || "",
-      state: addressParts[2] || "Melaka",
-      zipCode: addressParts[addressParts.length - 2] || "",
-      phone: address.phone || "",
-      email: "",
-      additionalInfo: "",
-      agreeTerms: false,
-    });
-    setIsEditing(true);
-    setEditIndex(index);
-    setShowModal(true);
-  };
-
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  // Handle form submission
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.agreeTerms) {
-      alert("Please agree to the terms and conditions.");
-      return;
-    }
-
-    const newAddress = {
-      name: `${formData.firstName} ${formData.lastName}`.trim(),
-      address: `${formData.streetAddress}, ${formData.townCity}, ${formData.state}, ${formData.zipCode}, ${formData.country}`,
-      phone: formData.phone,
-    };
-
-    if (isEditing) {
-      updateAddress(editIndex, newAddress);
-    } else {
-      addAddress(newAddress);
-      setSelectedAddressIndex(addresses.length); // Select the newly added address
-    }
-
-    setShowModal(false);
-  };
-
   // Handle placing the order
-  const handlePlaceOrder = () => {
-    if (pointsBalance < totalPoints) {
-      alert(
-        `Insufficient points! You need ${totalPoints} points, but you only have ${pointsBalance} points.`
-      );
-      return;
-    }
+  const handlePlaceOrder = async () => {
+    try {
+      // Step 1: Redeem the voucher
+      if (voucherCode) {
+        const redeemResponse = await fetch(`http://localhost:8080/api/voucherCode/redeem/${voucherCode}`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-    const success = deductPoints(totalPoints);
-    if (success) {
-      const orderId = `HJ${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      const orderDetails = {
-        orderId,
-        items: cart.map((item) => ({
-          name: item.name,
-          price: item.isRedeemed ? 0 : item.price,
-          quantity: item.quantity,
-          subtotal: item.isRedeemed ? 0 : item.price * item.quantity,
-          image: item.image || "/image/placeholder.jpg",
-        })),
-        subtotal: totalPoints,
-        total: totalPoints,
-      };
+        if (!redeemResponse.ok) {
+          const errorMessage = await redeemResponse.text();
+          alert(`Failed to redeem voucher: ${errorMessage}`);
+          return;
+        }
 
-      clearCart();
-      const state = encodeURIComponent(JSON.stringify(orderDetails));
-      router.push(`/order-confirmation?state=${state}`);
-    } else {
-      alert("Failed to place order. Please try again."); // Fixed typo
+        alert("Voucher redeemed successfully!");
+      }
+
+      // Step 2: Fetch cart items
+      const cartResponse = await fetch("http://localhost:8080/api/cart/", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!cartResponse.ok) {
+        throw new Error("Failed to fetch cart items for checkout.");
+      }
+
+      const cartItems = await cartResponse.json();
+
+      // Step 3: Call the checkout API
+      const checkoutResponse = await fetch("http://localhost:8080/api/checkout/", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(cartItems),
+      });
+
+      if (!checkoutResponse.ok) {
+        throw new Error("Failed to complete checkout.");
+      }
+
+      const checkoutResult = await checkoutResponse.json();
+
+    // Step 4: Navigate to the order confirmation page with the response
+    const encodedData = encodeURIComponent(JSON.stringify(checkoutResult));
+    router.push(`/orderconfirmation?data=${encodedData}`);
+
+      // Clear the cart
+      // clearCart();
+    } catch (error) {
+      console.error("Error during checkout:", error);
+      alert(error.message || "An error occurred during checkout.");
     }
   };
+
+  // Fetch user details on page load
+  useEffect(() => {
+    fetchUserDetails();
+  }, []);
 
   return (
     <div className="checkout-page">
@@ -158,10 +151,7 @@ export default function Checkout() {
         <div className="checkout-content">
           <section className="billing-details">
             <h2>Billing details</h2>
-            <button className="add-address-button" onClick={openAddModal}>
-              Add new address
-            </button>
-            {addresses.length > 0 ? ( // Added fallback for empty addresses
+            {addresses.length > 0 ? (
               addresses.map((address, index) => (
                 <div key={index} className="address">
                   <input
@@ -173,21 +163,12 @@ export default function Checkout() {
                   />
                   <label htmlFor={`address${index}`}>
                     {address.name}, {address.address}, {address.phone}
-                    <span className="edit-icon" onClick={() => openEditModal(index)}>
-                      ✏️
-                    </span>
                   </label>
                 </div>
               ))
             ) : (
-              <p>No addresses available. Please add an address.</p>
+              <p>Loading addresses...</p>
             )}
-            <div className="checkbox">
-              <input type="checkbox" id="billing-delivery-same" defaultChecked />
-              <label htmlFor="billing-delivery-same">
-                My billing and delivery information are the same.
-              </label>
-            </div>
           </section>
           <section className="order-summary">
             <h2>Product</h2>
@@ -212,187 +193,12 @@ export default function Checkout() {
               <span>Total</span>
               <span>{totalPoints.toLocaleString()}.00 Points</span>
             </div>
-            <p className="privacy-notice">
-              Your personal data will be used to support your experience throughout
-              this website, to manage access to your account, and for other purposes
-              described in our privacy policy.
-            </p>
             <button className="place-order-button" onClick={handlePlaceOrder}>
               Place order
             </button>
           </section>
         </div>
       </div>
-
-      {/* Modal for Add/Edit Address */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2>{isEditing ? "Edit Address" : "Add new address"}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="firstName">First Name</label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label htmlFor="lastName">Last Name</label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="form-group">
-                <label htmlFor="companyName">Company Name (optional)</label>
-                <input
-                  type="text"
-                  id="companyName"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="country">Country / Region</label>
-                <select
-                  id="country"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="Malaysia">Malaysia</option>
-                  <option value="Japan">Japan</option>
-                  <option value="Korea">Korea</option>
-                  <option value="Indonesia">Indonesia</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="streetAddress">Street Address</label>
-                <input
-                  type="text"
-                  id="streetAddress"
-                  name="streetAddress"
-                  value={formData.streetAddress}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="townCity">Town / City</label>
-                <input
-                  type="text"
-                  id="townCity"
-                  name="townCity"
-                  value={formData.townCity}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="state">State</label>
-                <select
-                  id="state"
-                  name="state"
-                  value={formData.state}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="Melaka">Melaka</option>
-                  <option value="Kuala Lumpur">Kuala Lumpur</option>
-                  <option value="Selangor">Selangor</option>
-                  <option value="Sabah">Sabah</option>
-                  <option value="Sarawak">Sarawak</option>
-                  <option value="Johor">Johor</option>
-                  <option value="Kedah">Kedah</option>
-                  <option value="Perak">Perak</option>
-                  <option value="Perlis">Perlis</option>
-                  <option value="Kelantan">Kelantan</option>
-                  <option value="Terengganu">Terengganu</option>
-                  <option value="Pahang">Pahang</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label htmlFor="zipCode">ZIP Code</label>
-                <input
-                  type="text"
-                  id="zipCode"
-                  name="zipCode"
-                  value={formData.zipCode}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="phone">Phone</label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="email">Email Address</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="additionalInfo">Additional Information</label>
-                <textarea
-                  id="additionalInfo"
-                  name="additionalInfo"
-                  value={formData.additionalInfo}
-                  onChange={handleInputChange}
-                />
-              </div>
-              <div className="form-group checkbox">
-                <input
-                  type="checkbox"
-                  id="agreeTerms"
-                  name="agreeTerms"
-                  checked={formData.agreeTerms}
-                  onChange={handleInputChange}
-                />
-                <label htmlFor="agreeTerms">
-                  I accept within 1 working day.{" "}
-                  <a href="/terms" target="_blank">
-                    Read the T&Cs
-                  </a>
-                </label>
-              </div>
-              <div className="modal-buttons">
-                <button type="button" className="close-btn" onClick={() => setShowModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="save-btn">
-                  Save Shipping Information
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

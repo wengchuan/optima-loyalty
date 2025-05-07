@@ -3,17 +3,18 @@
 import Link from "next/link";
 import Header from "../../components/Header"; // Adjusted path for app router
 import "./Account.css";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Account() {
   // Initial user data
   const [user, setUser] = useState({
-    fullName: "Elnaz Bolkhari",
-    email: "elnazbolkhari@gmail.com",
-    phone: "+80123456789",
-    password: "********",
-    language: "English",
-    pointsBalance: 10000,
+    fullName: "",
+    email: "",
+    phone: "",
+    password: "",
+    address: "",
+    aboutMe: "",
+    pointsBalance: 0,
   });
 
   // State to manage which field is being edited
@@ -21,6 +22,46 @@ export default function Account() {
 
   // State to manage form data while editing
   const [formData, setFormData] = useState({ ...user });
+
+  // Fetch user details from the API
+  const fetchUserDetails = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/users/user_info", {
+        method: "POST",
+        credentials: "include", // Include cookies for authentication
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch user details");
+      }
+
+      const userData = await response.json();
+
+      // Update user and form data with the API response
+      const updatedUser = {
+        fullName: userData.username || "",
+        email: userData.email || "",
+        phone: userData.phoneNumber || "",
+        password: "********", // Masked password
+        address: userData.address || "",
+        aboutMe: userData.aboutMe || "",
+        pointsBalance: userData.points || 0,
+      };
+
+      setUser(updatedUser);
+      setFormData(updatedUser);
+    } catch (error) {
+      console.error("Error fetching user details:", error);
+    }
+  };
+
+  // Call fetchUserDetails when the page loads
+  useEffect(() => {
+    fetchUserDetails();
+  }, []);
 
   // Handle edit icon click to enable editing for a specific field
   const handleEditClick = (field) => {
@@ -36,11 +77,62 @@ export default function Account() {
   };
 
   // Handle save button click to update user data
-  const handleSave = () => {
-    setUser({ ...formData }); // Update user data with form data
-    setEditingField(null); // Exit editing mode
-    // In a real app, you’d send the updated data to an API here
-    console.log("Updated user data:", formData);
+  const handleSave = async () => {
+    try {
+      // Send the updated formData to the API
+      const response = await fetch("http://localhost:8080/api/users/update", {
+        method: "POST", // Use POST or PUT based on your API design
+        credentials: "include", // Include cookies for authentication
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.fullName,
+          email: formData.email,
+          phoneNumber: formData.phone,
+          password: formData.password === "********" ? undefined : formData.password, // Only send password if it's updated
+          address: formData.address,
+          aboutMe: formData.aboutMe,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update user details");
+      }
+
+      // Since the server responds with no body, skip parsing the response
+      // Update the user state with the current formData
+      setUser({ ...formData, password: "********" }); // Mask the password
+      setEditingField(null); // Exit editing mode
+      alert("User details updated successfully!");
+       // Refresh the page
+    window.location.reload();
+    } catch (error) {
+      console.error("Error updating user details:", error);
+      alert(error.message || "An error occurred while updating user details.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch("http://localhost:8080/api/auth/logout", {
+        method: "POST",
+        credentials: "include", // Include cookies for authentication
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to log out");
+      }
+
+      alert("You have been logged out successfully.");
+      window.location.href = "/login"; // Redirect to the login page
+    } catch (error) {
+      console.error("Error logging out:", error);
+      alert("An error occurred while logging out. Please try again.");
+    }
   };
 
   return (
@@ -48,7 +140,7 @@ export default function Account() {
       <div className="account-container">
         <aside className="sidebar">
           <div className="user-info">
-            <div className="avatars">EB</div>
+            <div className="avatars">{user.fullName.charAt(0).toUpperCase()}</div>
             <h2>{user.fullName}</h2>
             <span className="points-balance">
               Points Balance {user.pointsBalance.toLocaleString()}
@@ -58,8 +150,21 @@ export default function Account() {
             <Link href="/account" className="active">
               My Account
             </Link>
-            <Link href="/orders">Orders</Link>
+            <Link
+              href={{
+                pathname: "/orders",
+                query: {
+                  fullName: user.fullName,
+                  pointsBalance: user.pointsBalance,
+                },
+              }}
+            >
+              Orders
+            </Link>
             <Link href="/points-history">Points History</Link>
+            <button className="logout-button" onClick={handleLogout}>
+              Logout
+            </button>
           </nav>
         </aside>
         <main className="main-content">
@@ -127,16 +232,30 @@ export default function Account() {
               </span>
             </div>
             <div className="detail-item">
-              <label>Language</label>
+              <label>Address</label>
               <input
                 type="text"
-                value={formData.language}
-                readOnly={editingField !== "language"}
-                onChange={(e) => handleInputChange(e, "language")}
+                value={formData.address}
+                readOnly={editingField !== "address"}
+                onChange={(e) => handleInputChange(e, "address")}
               />
               <span
                 className="edit-icon"
-                onClick={() => handleEditClick("language")}
+                onClick={() => handleEditClick("address")}
+              >
+                ✏️
+              </span>
+            </div>
+            <div className="detail-item">
+              <label>About Me</label>
+              <textarea
+                value={formData.aboutMe}
+                readOnly={editingField !== "aboutMe"}
+                onChange={(e) => handleInputChange(e, "aboutMe")}
+              />
+              <span
+                className="edit-icon"
+                onClick={() => handleEditClick("aboutMe")}
               >
                 ✏️
               </span>

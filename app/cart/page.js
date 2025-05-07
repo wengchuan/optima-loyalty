@@ -14,7 +14,9 @@ export default function Cart() {
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherMessage, setVoucherMessage] = useState("");
   const [voucherApplied, setVoucherApplied] = useState(false);
-
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [appliedVouchers, setAppliedVouchers] = useState([]);
+  
   // Function to fetch Cart from API
   const fetchCart = async () => {
     setCartLoading(true);
@@ -32,22 +34,37 @@ export default function Cart() {
       }
 
       const data = await response.json();
-      setCart(data); // Update the `cart` state from `useCart`
+
+      // Initialize redeemedQuantity to 0 for all items
+      const updatedCart = data.map((item) => ({
+        ...item,
+        redeemedQuantity: item.redeemedQuantity || 0,
+      }));
+
+      setCart(updatedCart); // Update the `cart` state
+
+      // Calculate initial total points
+      const initialTotalPoints = updatedCart.reduce((total, item) => {
+        const remainingQuantity = item.quantity - (item.redeemedQuantity || 0);
+        return total + item.voucher.points * remainingQuantity;
+      }, 0);
+      setTotalPoints(initialTotalPoints); // Set initial total points
     } catch (error) {
       console.error("Failed to fetch Cart:", error);
     } finally {
       setCartLoading(false);
     }
   };
+
   // Handle Apply Voucher
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim()) {
       setVoucherMessage("Please enter a voucher code.");
       return;
     }
-
+  
     let isVoucherValid = false; // Flag to track if a match is found
-
+  
     try {
       for (const item of cart) {
         const response = await fetch("http://localhost:8080/api/voucherCode/verify", {
@@ -61,26 +78,43 @@ export default function Cart() {
             voucherId: item.voucher.id, // Check each item's voucher ID
           }),
         });
-
+  
         if (response.ok) {
           const message = await response.text();
           setVoucherMessage(message); // Set success message
-          setVoucherApplied(true); // Mark voucher as applied
           isVoucherValid = true; // Mark as valid
-
-          // Deduct points for the matched item
-          setCart((prevCart) =>
-            prevCart.map((cartItem) =>
-              cartItem.voucher.id === item.voucher.id
-                ? { ...cartItem, isRedeemed: true } // Mark as redeemed
-                : cartItem
-            )
+  
+          // Deduct points for one quantity of the matched item
+          const updatedCart = cart.map((cartItem) =>
+            cartItem.voucher.id === item.voucher.id && cartItem.quantity > cartItem.redeemedQuantity
+              ? {
+                  ...cartItem,
+                  redeemedQuantity: (cartItem.redeemedQuantity || 0) + 1, // Increment redeemed quantity
+                  isRedeemed: cartItem.redeemedQuantity + 1 === cartItem.quantity, // Mark as fully redeemed if all quantities are redeemed
+                }
+              : cartItem
           );
-
+  
+          setCart(updatedCart); // Update the cart state
+  
+          // Recalculate total points after applying the voucher
+          const updatedTotalPoints = updatedCart.reduce((total, cartItem) => {
+            const remainingQuantity = cartItem.quantity - (cartItem.redeemedQuantity || 0);
+            const itemPoints = remainingQuantity > 0 ? cartItem.voucher.points * remainingQuantity : 0;
+            return total + itemPoints;
+          }, 0);
+  
+          setTotalPoints(updatedTotalPoints); // Update total points
+  
+          // Add the applied voucher code to the list of applied vouchers
+          setAppliedVouchers((prevVouchers) => [...prevVouchers, voucherCode]);
+  
+          setVoucherCode(""); // Clear the input field
+          setVoucherApplied(true); // Mark voucher as applied
           break; // Exit the loop once a match is found
         }
       }
-
+  
       if (!isVoucherValid) {
         throw new Error("No matching voucher found in the cart.");
       }
@@ -158,10 +192,10 @@ export default function Cart() {
     }
   };
 
-  const totalPoints = cart.reduce((total, item) => {
-    const itemPrice = item.isRedeemed ? 0 : item.voucher.points; // If redeemed, price is 0
-    return total + itemPrice * item.quantity;
-  }, 0);
+  // const totalPoints = cart.reduce((total, item) => {
+  //   const itemPrice = item.isRedeemed ? 0 : item.voucher.points; // If redeemed, price is 0
+  //   return total + itemPrice * item.quantity;
+  // }, 0);
 
   // Handle Checkout
   const handleCheckout = () => {
@@ -170,11 +204,13 @@ export default function Cart() {
       return;
     }
 
-    // Navigate to the checkout page and pass cart data
-    router.push(
-     "/checkout",
-       // Pass cart data as a query parameter
-  );
+    if (appliedVouchers.length === 0) {
+      alert("Please apply a voucher code before proceeding to checkout.");
+      return;
+    }
+
+    // Navigate to the checkout page
+    router.push(`/checkout`);
   };
 
   useEffect(() => {
@@ -214,12 +250,14 @@ export default function Cart() {
                 <div className="cart-table-cell product-cell">
                   <img src={"http://localhost:8080" + item.voucher.image} alt={item.voucher.title} className="cart-item-image" />
                   <span>{item.voucher.title}</span>
-                  {item.isRedeemed && <span className="redeemed-label"> (Redeemed)</span>}
+                  {item.isRedeemed && <span className="redeemed-label"> (Fully Redeemed)</span>}
                 </div>
 
                 {/* Price Column */}
                 <div className="cart-table-cell">
-                  {item.isRedeemed ? "0" : item.voucher.points}.00 Points
+                  {item.redeemedQuantity === item.quantity
+                    ? "0"
+                    : item.voucher.points}.00 Points
                 </div>
 
                 {/* Quantity Column */}
@@ -243,9 +281,9 @@ export default function Cart() {
 
                 {/* Subtotal Column */}
                 <div className="cart-table-cell">
-                  {item.isRedeemed
+                  {item.redeemedQuantity === item.quantity
                     ? "0"
-                    : (item.voucher.points * item.quantity)}.00 Points
+                    : (item.voucher.points * (item.quantity - (item.redeemedQuantity || 0))).toLocaleString()}.00 Points
                 </div>
                 <button
                   className="delete-btn"
@@ -262,11 +300,27 @@ export default function Cart() {
             <h2 className="cart-totals-title">Cart Totals</h2>
             <div className="totals-row">
               <span>Subtotal</span>
-              <span>{totalPoints}.00 Points</span>
+              <span>{totalPoints.toLocaleString()}.00 Points</span>
             </div>
             <div className="totals-row">
               <span>Total</span>
-              <span className="total-amount">{totalPoints}.00 Points</span>
+              <span className="total-amount">{totalPoints.toLocaleString()}.00 Points</span>
+            </div>
+
+            {/* Display Applied Vouchers */}
+            <div className="applied-vouchers">
+              <h3>Applied Vouchers</h3>
+              {appliedVouchers.length === 0 ? (
+                <p>No vouchers applied yet.</p>
+              ) : (
+                <ul>
+                  {appliedVouchers.map((voucher, index) => (
+                    <li key={index} className="applied-voucher">
+                      <span>{voucher}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Voucher Code Input */}
@@ -279,13 +333,8 @@ export default function Cart() {
                   value={voucherCode}
                   onChange={(e) => setVoucherCode(e.target.value)}
                   placeholder="Enter voucher code"
-                  disabled={voucherApplied}
                 />
-                <button
-                  className="apply-voucher-btn"
-                  onClick={handleApplyVoucher}
-                  disabled={voucherApplied}
-                >
+                <button className="apply-voucher-btn" onClick={handleApplyVoucher}>
                   Apply
                 </button>
               </div>
@@ -296,8 +345,9 @@ export default function Cart() {
               )}
             </div>
 
+            {/* Checkout Button */}
             <button className="checkout-btn" onClick={handleCheckout}>
-              Check Out
+              Proceed to Checkout
             </button>
           </div>
         </div>

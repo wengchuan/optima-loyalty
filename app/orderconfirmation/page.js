@@ -6,44 +6,11 @@ import "./OrderConfirmation.css";
 
 export default function OrderConfirmation() {
   const searchParams = useSearchParams();
-  const state = searchParams.get("state");
+  const data = JSON.parse(decodeURIComponent(searchParams.get("data")));
 
-  // Parse the orderDetails from the query parameter with error handling
-  let orderDetails;
-  try {
-    orderDetails = state
-      ? JSON.parse(decodeURIComponent(state))
-      : {
-          orderId: "HJ38938BUIO",
-          items: [
-            {
-              name: "Lenovo 27\" Monitor",
-              price: 2500,
-              quantity: 1,
-              subtotal: 2500,
-              image: "/image/lenovo.jpeg",
-            },
-          ],
-          subtotal: 2500,
-          total: 2500,
-        };
-  } catch (error) {
-    console.error("Failed to parse orderDetails:", error);
-    orderDetails = {
-      orderId: "HJ38938BUIO",
-      items: [
-        {
-          name: "Lenovo 27\" Monitor",
-          price: 2500,
-          quantity: 1,
-          subtotal: 2500,
-          image: "/image/lenovo.jpeg",
-        },
-      ],
-      subtotal: 2500,
-      total: 2500,
-    };
-  }
+  // Calculate subtotal and total
+  const subtotal = data.reduce((sum, item) => sum + item.voucher.points * item.quantity, 0);
+  const total = subtotal; // Assuming no additional fees or discounts
 
   return (
     <div className="confirmation-page">
@@ -59,28 +26,32 @@ export default function OrderConfirmation() {
             <span>Quantity</span>
             <span>Subtotal</span>
           </div>
-          {orderDetails.items.map((item, index) => (
+          {data.map((item, index) => (
             <div key={index} className="order-item">
               <div className="item-details">
-                <img src={item.image} alt={item.name} className="item-image" />
-                <span>{item.name}</span>
+                <img
+                  src={"http://localhost:8080" + item.voucher.image}
+                  alt={item.voucher.title}
+                  className="item-image"
+                />
+                <span>{item.voucher.title}</span>
               </div>
-              <span>{item.price.toLocaleString()}.00 Points</span>
+              <span>{item.voucher.points} Points</span>
               <span>{item.quantity}</span>
-              <span>RM {item.subtotal.toLocaleString()}.00</span>
+              <span>{(item.voucher.points * item.quantity).toLocaleString()} Points</span>
             </div>
           ))}
         </div>
         <div className="order-summary">
-          <h2>Order ID: {orderDetails.orderId}</h2>
+          <h2>Order ID: {data[0].id}</h2>
           <h3>TOTALS</h3>
           <div className="summary-row">
             <span>Subtotal</span>
-            <span>{orderDetails.subtotal.toLocaleString()}.00 Points</span>
+            <span>{subtotal.toLocaleString()} Points</span>
           </div>
           <div className="summary-row total">
             <span>Total</span>
-            <span>{orderDetails.total.toLocaleString()}.00 Points</span>
+            <span>{total.toLocaleString()} Points</span>
           </div>
         </div>
       </div>

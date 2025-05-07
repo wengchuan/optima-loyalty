@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "../context/UserContext"; // Adjust the path as needed
 import "./Header.css";
+import { MdAccountCircle } from "react-icons/md";
 import { FaCartShopping } from "react-icons/fa6";
 import { FaSearch } from "react-icons/fa";
 import SearchBox from "./searchBox";
@@ -30,7 +31,9 @@ export default function Header() {
         <div className="icons">
           
         <SearchBox />
-          <span>👤</span>
+        <Link href="/account">
+          <MdAccountCircle size={34} />
+          </Link>
           <Link href="/cart" className="cart-icon">
             <FaCartShopping size={24} />
           </Link>
