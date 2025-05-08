@@ -213,7 +213,7 @@ const handleAcceptTerms = async (selectedVoucher) => {
           </Link>
           <Link href="/shop?category=electronic" className="category-link">
             <div className="category-card electronic">
-              <img src="/image/pnter.jpeg" alt="Electronic Device" />
+              <img src="/image/device.jpeg" alt="Electronic Device" />
               <h3>Electronic Device</h3>
             </div>
           </Link>

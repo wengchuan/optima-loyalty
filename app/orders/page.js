@@ -14,6 +14,7 @@ export default function Orders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [sortOption, setSortOption] = useState("default");
 
   const fetchUserDetails = async () => {
     try {
@@ -66,6 +67,11 @@ export default function Orders() {
     }
   };
 
+  const handleGetCategory = (category) => {
+    // Placeholder function for re-fetching and sorting vouchers
+    console.log(`Fetching and sorting vouchers for category: ${category}`);
+  };
+
   useEffect(() => {
     fetchUserDetails();
     fetchOrders();
@@ -93,6 +99,22 @@ export default function Orders() {
         <main className="main-content">
           <h1>Orders</h1>
           <section className="orders-section">
+            <div className="filter-right">
+              <label htmlFor="sort-by">Sort by</label>
+              <select
+                id="sort-by"
+                className="sort-select"
+                value={sortOption}
+                onChange={(e) => {
+                  setSortOption(e.target.value);
+                  handleGetCategory("orders"); // Re-fetch and sort vouchers when the sort option changes
+                }}
+              >
+                <option value="default">Default</option>
+                <option value="price-asc">Points: Low to High</option>
+                <option value="price-desc">Points: High to Low</option>
+              </select>
+            </div>
             <h3>Your Orders</h3>
             {loading ? (
               <p>Loading orders...</p>
@@ -118,7 +140,7 @@ export default function Orders() {
                       <td>{new Date(order.completed_date).toLocaleDateString()}</td>
                       <td>{order.voucher.title}</td>
                       <td>{order.quantity}</td>
-                      <td>{order.voucher.points.toLocaleString()} Points</td>
+                      <td>{order.voucher.points.toLocaleString()} Points (per item) </td>
                     </tr>
                   ))}
                 </tbody>

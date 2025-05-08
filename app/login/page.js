@@ -72,7 +72,7 @@ export default function Login() {
   };
 
   const handleGoogleLogin =async (e) => {
-    window.location.href = "http://localhost:8080/api/users/google"; 
+    window.location.href = "http://localhost:8080/oauth2/authorization/google"; 
 
   };
 

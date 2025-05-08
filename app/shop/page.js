@@ -7,80 +7,95 @@ import "./Shop.css";
 
 export default function Shop() {
   const [currentPage, setCurrentPage] = useState(1);
-  const [vouchers, setVouchers] = useState([]); // State to hold fetched vouchers
+  const [allVouchers, setAllVouchers] = useState([]); // Store all fetched vouchers
+  const [vouchers, setVouchers] = useState([]); // Store sorted/displayed vouchers
+  const [sortOption, setSortOption] = useState("default");
   const productsPerPage = 8; // You might want to rename this to vouchersPerPage for clarity
   const searchParams = useSearchParams();
   const category = searchParams.get("category") || "all";
 
   // Function to fetch vouchers based on category
   const handleGetCategory = async (cat) => {
-    // Clear existing vouchers before fetching new ones or if category is not handled
     setVouchers([]);
-    setCurrentPage(1); // Reset to first page when category changes
+    setCurrentPage(1);
 
-    if (cat === "computer") {
-      try {
-        console.log("Fetching electronic vouchers..."); // Added log
-        const response = await fetch("http://localhost:8080/api/voucher/category", {
+    try {
+      let response;
+      if (cat === "all") {
+        response = await fetch("http://localhost:8080/api/voucher/", {
           method: "POST",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            categoryId: "1", // Assuming "1" corresponds to "electronic"
-          }),
         });
-
-        if (!response.ok) {
-          throw new Error(`Error fetching vouchers: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log("Fetched data:", data); // Added log
-        setVouchers(Array.isArray(data) ? data : []); // Ensure data is an array
-      } catch (error) {
-        console.error("Failed to fetch electronic vouchers:", error);
-        setVouchers([]); // Ensure vouchers are empty on error
-      }
-    } else if (cat === "all") {
-      // --- TODO: Implement fetching ALL vouchers ---
-      // You'll need an endpoint or logic to fetch all vouchers.
-      // Example (replace with your actual API call):
-      
-      try {
-        console.log("Fetching all vouchers...");
-        const response = await fetch("http://localhost:8080/api/voucher/", { // Adjust endpoint as needed
+      } else if (cat === "computer") {
+        response = await fetch("http://localhost:8080/api/voucher/category", {
           method: "POST",
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-          }),
+          body: JSON.stringify({ categoryId: "1" }),
         });
-        if (!response.ok) throw new Error(`Error: ${response.status}`);
-        const data = await response.json();
-        setVouchers(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to fetch all vouchers:", error);
+      } else if (cat === "mobile") {
+        response = await fetch("http://localhost:8080/api/voucher/category", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ categoryId: "2" }),
+        });
+      } else if (cat === "electronic") {
+        response = await fetch("http://localhost:8080/api/voucher/category", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ categoryId: "3" }),
+        });
+      } else {
+        console.log(`Category '${cat}' not implemented.`);
         setVouchers([]);
+        return;
       }
-      
-      console.log("Fetching 'all' category - Implement specific API call.");
-      // Currently leaves vouchers empty for 'all'
-      //setVouchers([]);
-    } else {
-      // Handle other potential categories or default case
-      console.log(`Category '${cat}' not implemented for fetching, showing no vouchers.`);
+
+      if (!response.ok) {
+        throw new Error(`Error fetching vouchers: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const fetchedVouchers = Array.isArray(data) ? data : [];
+
+      setAllVouchers(fetchedVouchers); // Store all fetched vouchers
+      setVouchers(fetchedVouchers); // Initially display all vouchers
+    } catch (error) {
+      console.error("Failed to fetch vouchers:", error);
       setVouchers([]);
     }
+  };
+
+  // Function to sort vouchers
+  const sortVouchers = (vouchers, option) => {
+    if (option === "price-asc") {
+      return [...vouchers].sort((a, b) => a.points - b.points);
+    } else if (option === "price-desc") {
+      return [...vouchers].sort((a, b) => b.points - a.points);
+    }
+    return vouchers; // Default sorting (no sorting applied)
   };
 
   // useEffect to fetch data when the component mounts or the category changes
   useEffect(() => {
     handleGetCategory(category);
   }, [category]); // Dependency array includes category
+
+  useEffect(() => {
+    const sortedVouchers = sortVouchers(allVouchers, sortOption);
+    setVouchers(sortedVouchers);
+  }, [sortOption, allVouchers]); // Re-sort when sortOption or allVouchers changes
 
   // Calculate pagination based on the fetched vouchers state
   const totalProducts = vouchers.length; // Use vouchers length
@@ -123,18 +138,17 @@ export default function Shop() {
         </div>
         {/* Filter right controls (sorting/show amount) - functionality not implemented here */}
         <div className="filter-right">
-            <label htmlFor="show">Show</label>
-            <select id="show" className="sort-select">
-                <option value="16">16</option>
-                <option value="32">32</option>
-                <option value="48">48</option>
-            </select>
-            <label htmlFor="sort-by">Sort by</label>
-            <select id="sort-by" className="sort-select">
-                <option value="default">Default</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-            </select>
+          <label htmlFor="sort-by">Sort by</label>
+          <select
+            id="sort-by"
+            className="sort-select"
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)} // Only update sortOption
+          >
+            <option value="default">Default</option>
+            <option value="price-asc">Points: Low to High</option>
+            <option value="price-desc">Points: High to Low</option>
+          </select>
         </div>
       </div>
 
